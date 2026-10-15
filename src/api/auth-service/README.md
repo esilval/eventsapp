@@ -1,8 +1,9 @@
 # auth-service
 
 Microservicio de autenticación de **EventsApp**. Implementa el **registro**
-(`docs/features/register_user.md`) y el **inicio de sesión**
-(`docs/features/user_login.md`, spec `specs/001-inicio-sesion-usuario/`) siguiendo
+(`docs/features/register_user.md`, spec `specs/002-registro-usuario/`) y el
+**inicio de sesión** (`docs/features/user_login.md`, spec
+`specs/001-inicio-sesion-usuario/`) siguiendo
 **Clean Architecture** y el stack de `docs/tech_stack.md` (Python, Flask-RESTful,
 SQLAlchemy, PostgreSQL, PyJWT, PyTest, Docker).
 
@@ -33,11 +34,43 @@ Los recursos con **Auth = Bearer** requieren la cabecera
 }
 ```
 
+`phone` es opcional. Un teléfono vacío o solo con espacios equivale a no
+enviarlo.
+
 | Código | Caso |
 |--------|------|
-| `201 Created` | Registro exitoso. Devuelve `{ message, user: { id, name, email, phone } }`. |
-| `400 Bad Request` | Datos faltantes/inválidos o contraseña débil (incluye `details`). |
-| `409 Conflict` | El email ya está registrado. |
+| `201 Created` | Registro exitoso. Devuelve `{ message, user: { id, name, email, phone } }` con el correo normalizado (R010). |
+| `400 Bad Request` | Cuerpo que no es un objeto JSON (sin `details`), errores de forma o contraseña débil (con `details`, un mensaje por problema). |
+| `409 Conflict` | `{ "error": "El correo electrónico ya está registrado." }` (R005, R006, R007). |
+
+**Ejemplo de `400`** con varios errores de forma a la vez:
+
+```json
+{
+  "error": "Datos de registro inválidos.",
+  "details": [
+    "El nombre no puede superar 100 caracteres.",
+    "El teléfono no tiene un formato válido."
+  ]
+}
+```
+
+**Orden de validación.** Primero se comprueban todos los errores de forma de
+todos los campos en una sola pasada; si hay alguno, la respuesta los enumera
+todos y no se evalúa nada más. Solo si la forma es correcta se aplica la
+política de contraseña, y por último se comprueba que el correo no esté
+registrado. Así, una petición con un teléfono inválido y una contraseña débil
+recibe primero solo el error del teléfono.
+
+| Error de forma | Mensaje de `details` |
+|----------------|----------------------|
+| Campo obligatorio ausente o vacío | «El nombre es obligatorio.», «El correo electrónico es obligatorio.», «La contraseña es obligatoria.» |
+| Correo mal formado, o cualquier campo con un valor que no es texto | «El nombre / El correo electrónico / La contraseña / El teléfono no tiene un formato válido.» |
+| Nombre > 100 caracteres | «El nombre no puede superar 100 caracteres.» |
+| Correo > 254 caracteres | «El correo electrónico no puede superar 254 caracteres.» |
+| Contraseña > 128 caracteres | «La contraseña no puede superar 128 caracteres.» |
+| Teléfono > 20 caracteres | «El teléfono no puede superar 20 caracteres.» |
+| Teléfono con caracteres no permitidos o sin dígitos | «El teléfono no tiene un formato válido.» |
 
 ### `POST /v1/auth/login`
 
@@ -101,13 +134,37 @@ readinessProbe:
 
 ## Reglas de negocio
 
-**Registro**
+**Registro** (spec `002-registro-usuario`)
 
-- **Email único** (AC-002): no se admiten dos usuarios con el mismo correo.
-- **Política de contraseña** (AC-003): mínimo 8 caracteres, con al menos una
-  mayúscula, una minúscula, un número y un carácter especial.
-- **Hashing + salting**: las contraseñas se almacenan con **bcrypt** (el salt se
-  genera y embebe dentro del hash; la columna `salt` del modelo ER queda sin uso).
+- **Campos obligatorios** (R002): nombre, correo y contraseña. Un nombre solo
+  con espacios cuenta como ausente.
+- **Normalización** (R001, R006): nombre y correo se guardan sin espacios
+  exteriores; el correo, además, en minúsculas. `Ana@Example.COM` y
+  `ana@example.com` son el mismo correo.
+- **Formato del correo** (R003): `algo@dominio.tld`, sin espacios.
+- **Correo único** (R005, R007): un correo ya registrado se rechaza con `409`
+  explícito. Ante dos altas simultáneas, la restricción única de la base de
+  datos garantiza que solo se cree una cuenta. El mensaje explícito permite
+  averiguar si un correo tiene cuenta; es un riesgo aceptado en la spec.
+- **Política de contraseña** (R004): mínimo 8 caracteres, con al menos una
+  mayúscula, una minúscula, un dígito y un carácter especial. Se informan todas
+  las reglas incumplidas a la vez.
+- **Longitudes máximas** (R015): nombre 100, correo 254 y contraseña 128
+  caracteres, medidas tras la normalización. Se comprueban antes de calcular el
+  hash.
+- **Teléfono opcional** (R014, R016, R017): como máximo 20 caracteres; solo
+  dígitos del 0 al 9, espacios, guiones, paréntesis y un `+` inicial, con al
+  menos un dígito. Se guarda tal como llega, sin espacios exteriores.
+- **Tipos** (R012): un valor que no es texto (número, booleano, lista) se
+  rechaza como formato inválido de ese campo, nunca con un error `500`.
+- **Hashing + salting** (R008): las contraseñas se almacenan con **bcrypt** (el
+  salt se genera y embebe dentro del hash; la columna `salt` del modelo ER queda
+  sin uso). bcrypt solo usa los primeros **72 bytes** de la contraseña: lo que
+  pase de ahí no aporta seguridad (riesgo aceptado, D5 del plan).
+- **Confidencialidad** (R009): ni la contraseña ni su hash aparecen en
+  respuestas ni en logs.
+- **Login tras el registro** (R011): la cuenta creada sirve de inmediato para
+  iniciar sesión; el registro no inicia sesión automáticamente.
 
 **Inicio de sesión** (spec `001-inicio-sesion-usuario`)
 
@@ -208,9 +265,12 @@ docker run -p 5000:5000 \
 
 ## Alcance
 
-Este servicio cubre el **registro** (AC-001 a AC-004) y el **inicio de sesión**
-(AC-005; requisitos R001–R010 de `specs/001-inicio-sesion-usuario/`).
+Este servicio cubre el **registro** (requisitos de
+`specs/002-registro-usuario/`) y el **inicio de sesión** (requisitos R001–R010
+de `specs/001-inicio-sesion-usuario/`).
 
-Fuera de alcance (ver non-goals de la spec): recuperación de contraseña,
-verificación de email, login social/SSO, MFA/2FA, autorización por roles y
-sesiones persistentes ("recordarme").
+Fuera de alcance (ver los non-goals de ambas specs): formulario web de registro
+(irá en una feature de frontend), inicio de sesión automático tras el registro,
+verificación de email, CAPTCHA o protección anti-bots en el registro, edición
+de perfil, recuperación y cambio de contraseña, login social/SSO, MFA/2FA,
+autorización por roles y sesiones persistentes ("recordarme").
