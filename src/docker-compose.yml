@@ -8,7 +8,9 @@
 #   cd src && docker compose up --build
 #
 # Las credenciales se toman de un archivo .env (ver .env.example). Todas las
-# variables tienen un valor por defecto para poder levantar el entorno sin .env.
+# variables tienen un valor por defecto salvo JWT_SECRET, que es obligatoria:
+# sin ella el servicio firmaría los tokens con un secreto conocido. Para
+# desarrollo basta con copiar .env.example a .env.
 
 services:
   db:
@@ -42,6 +44,8 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-eventsapp}:${POSTGRES_PASSWORD:-eventsapp}@db:5432/${POSTGRES_DB:-eventsapp}
       # Crear las tablas al arrancar (dev). En producción usar migraciones.
       AUTO_CREATE_TABLES: "true"
+      # Secreto de firma de la credencial de sesión (JWT). Obligatorio.
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en src/.env (ver .env.example)}
     ports:
       - "${AUTH_SERVICE_PORT:-5000}:5000"
     depends_on:

@@ -140,17 +140,16 @@ implementa.
 
 ```bash
 cd src
-cp .env.example .env    # opcional: todas las variables tienen valor por defecto
+cp .env.example .env    # obligatorio: define JWT_SECRET
 docker compose up --build
 ```
 
 Levanta PostgreSQL y el `auth-service` en `http://localhost:5000`. Comprueba que
 está listo con `GET /health/ready`.
 
-> **Importante:** `docker-compose.yml` no define `JWT_SECRET`, así que el
-> servicio firma los tokens con el valor por defecto
-> `change-me-in-production`. Sirve para desarrollo local; en cualquier otro
-> entorno hay que definir un secreto propio.
+> **Importante:** `JWT_SECRET` es obligatoria; sin ella `docker compose` se
+> niega a arrancar. El valor de `.env.example` solo sirve para desarrollo local:
+> en cualquier otro entorno genera un secreto propio.
 
 ### Pruebas del auth-service
 
