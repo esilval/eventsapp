@@ -2,7 +2,9 @@ Flask==3.0.3
 Flask-RESTful==0.3.10
 SQLAlchemy==2.0.34
 passlib[bcrypt]==1.7.4
-bcrypt==4.2.0
+# passlib 1.7.4 lee bcrypt.__about__, que desaparece en bcrypt 4.1; con una
+# versión posterior registra «(trapped) error reading bcrypt version».
+bcrypt==4.0.1
 PyJWT==2.9.0
 psycopg2-binary==2.9.10
 gunicorn==22.0.0
