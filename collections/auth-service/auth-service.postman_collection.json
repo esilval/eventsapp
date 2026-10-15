@@ -1,0 +1,321 @@
+{
+  "info": {
+    "name": "EventsApp · auth-service",
+    "_postman_id": "8f1c2e3a-4b5d-4e6f-9a01-auth-service001",
+    "description": "Colección para probar el microservicio de autenticación de EventsApp.\n\nCubre registro, inicio de sesión, recurso protegido (/me) y cierre de sesión, además de casos de error (contraseña débil, email duplicado, credenciales inválidas, token ausente/revocado).\n\n**Variables** (edítalas en la pestaña *Variables* de la colección o del entorno):\n- `baseUrl`: URL base del servicio (por defecto `http://localhost:5000`).\n- `email` / `password`: credenciales usadas por Login y por el flujo protegido.\n- `token`: se rellena automáticamente tras un login exitoso.\n\n**Flujo recomendado**: Health → Register → Login → Me → Logout → (Me tras logout devuelve 401).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "email", "value": "ana@example.com", "type": "string" },
+    { "key": "password", "value": "Abcd123!", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Liveness probe: indica que el proceso está vivo. Barato y sin dependencias (no consulta la BD). Úsalo como `livenessProbe` en Kubernetes / health check de Cloud Run."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test(\"status = ok\", () => pm.expect(pm.response.json().status).to.eql('ok'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health · readiness",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health/ready",
+          "host": ["{{baseUrl}}"],
+          "path": ["health", "ready"]
+        },
+        "description": "Readiness probe: indica si el servicio puede atender tráfico (dependencias sanas). Comprueba la conexión a la base de datos con `SELECT 1`.\n\n- `200 OK` → `{ status: 'ok', checks: { database: 'ok' } }`.\n- `503 Service Unavailable` → `{ status: 'unavailable', checks: { database: 'error' } }` cuando la BD no responde.\n\nÚsalo como `readinessProbe` en Kubernetes: el balanceador retira la instancia del pool si devuelve 503, sin reiniciar el contenedor."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 (sano) o 503 (dependencia caída)', () => pm.expect([200, 503]).to.include(pm.response.code));",
+              "const body = pm.response.json();",
+              "pm.test('incluye checks.database', () => pm.expect(body.checks).to.have.property('database'));",
+              "if (pm.response.code === 200) {",
+              "  pm.test(\"status = ok\", () => pm.expect(body.status).to.eql('ok'));",
+              "  pm.test('database ok', () => pm.expect(body.checks.database).to.eql('ok'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"phone\": \"3001234567\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "register"]
+        },
+        "description": "Registra un nuevo usuario.\n\n- `201 Created`: registro exitoso → `{ message, user: { id, name, email, phone } }`.\n- `400 Bad Request`: datos inválidos o contraseña débil (incluye `details`).\n- `409 Conflict`: el email ya está registrado.\n\n`phone` es opcional.\n\nSugerencia para reejecutar sin conflicto 409: cambia la variable `email` (o usa un pre-request script que genere uno aleatorio)."
+        },
+        "response": [],
+        "event": [
+          {
+            "listen": "prerequest",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "// Genera un email único por ejecución para evitar 409 al reejecutar.",
+                "// Se guarda en la variable de colección `email` para que Login use el mismo.",
+                "const rand = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);",
+                "const email = `ana+${rand}@example.com`;",
+                "pm.collectionVariables.set('email', email);",
+                "console.log('Register usará el email:', email);"
+              ]
+            }
+          },
+          {
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('201 Created (o 409 si el email ya existe)', () => pm.expect([201, 409]).to.include(pm.response.code));",
+                "if (pm.response.code === 201) {",
+                "  const u = pm.response.json().user;",
+                "  pm.test('devuelve el usuario creado', () => pm.expect(u).to.have.property('id'));",
+                "  pm.test('email coincide', () => pm.expect(u.email).to.eql(pm.collectionVariables.get('email')));",
+                "}"
+              ]
+            }
+          }
+        ]
+    },
+    {
+      "name": "Register · contraseña débil (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"debil@example.com\",\n  \"password\": \"abc\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "register"]
+        },
+        "description": "Contraseña que no cumple la política (mín. 8 chars, mayúscula, minúscula, número y carácter especial). Debe devolver `400` con `error` y `details`."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+              "pm.test('incluye details', () => pm.expect(pm.response.json()).to.have.property('details'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "login"]
+        },
+        "description": "Autentica y emite un JWT (HS256, expira en 24 h).\n\n- `200 OK` → `{ message, token, user: { id, name, email } }`. El test guarda `token` en la variable de colección.\n- `400 Bad Request`: falta `email` o `password`.\n- `401 Unauthorized`: credenciales inválidas **o** cuenta bloqueada (cuerpo genérico e indistinguible)."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('devuelve token', () => pm.expect(body).to.have.property('token').that.is.a('string'));",
+              "if (body.token) {",
+              "  pm.collectionVariables.set('token', body.token);",
+              "  console.log('token guardado en la variable de colección');",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login · credenciales inválidas (401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"WrongPass9!\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "login"]
+        },
+        "description": "Contraseña incorrecta. Debe devolver `401` con un cuerpo genérico (no revela si la cuenta existe). Repetir 3 veces en 5 min dispara el bloqueo por fuerza bruta (R005)."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+              "pm.test('sin token', () => pm.expect(pm.response.json()).to.not.have.property('token'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login · falta password (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "login"]
+        },
+        "description": "Falta `password` (R003). Debe devolver `400`."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Me (protegido)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "me"]
+        },
+        "description": "Recurso protegido. Requiere `Authorization: Bearer <token>` (usa el `token` guardado por Login).\n\n- `200 OK` → `{ message, user: { id, name, email } }`.\n- `401 Unauthorized`: token ausente, inválido, expirado o revocado."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('devuelve el usuario', () => pm.expect(pm.response.json().user).to.have.property('email'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Me · sin token (401)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "me"]
+        },
+        "description": "Petición al recurso protegido sin cabecera Authorization. Debe devolver `401`."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "logout"]
+        },
+        "description": "Cierra la sesión: añade el `jti` del token a la lista de revocación (R008). Requiere `Authorization: Bearer <token>`.\n\n- `200 OK`: sesión cerrada; el token queda revocado.\n- `401 Unauthorized`: sin credencial válida.\n\nTras el logout, reejecuta **Me (protegido)** con el mismo token: ahora debe devolver `401`."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant U as Usuario
+    participant A as Aplicación
+    participant B as Base de datos
+    U->>A: Solicita registrarse
+    A->>U: Muestra formulario de registro
+    U->>A: Completa el formulario con datos del usuario
+    A->>U: Valida los datos ingresados
+    A->>U: Muestra errores si los datos no son válidos
+    A->>A: Genera hash de la contraseña y sal
+    A->>A: Crea un nuevo usuario con los datos validados y el hash
+    A->>B: Guarda el usuario en la base de datos
+    B-->>A: Confirma que el usuario ha sido guardado
+    A->>U: Muestra confirmación de registro

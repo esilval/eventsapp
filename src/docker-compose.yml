@@ -1,0 +1,58 @@
+# Orquestación local de EventsApp.
+#
+# Servicios:
+#   - db:           PostgreSQL (base de datos relacional del stack).
+#   - auth-service: microservicio de autenticación (registro de usuarios).
+#
+# Uso (cuando se desee ejecutar):
+#   cd src && docker compose up --build
+#
+# Las credenciales se toman de un archivo .env (ver .env.example). Todas las
+# variables tienen un valor por defecto para poder levantar el entorno sin .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eventsapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eventsapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eventsapp}
+      POSTGRES_DB: ${POSTGRES_DB:-eventsapp}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # El backend espera a que la base acepte conexiones antes de arrancar.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eventsapp} -d ${POSTGRES_DB:-eventsapp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - eventsapp
+
+  auth-service:
+    build:
+      context: ./api/auth-service
+    container_name: eventsapp-auth-service
+    restart: unless-stopped
+    environment:
+      # Driver SQLAlchemy + psycopg2 apuntando al servicio "db".
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-eventsapp}:${POSTGRES_PASSWORD:-eventsapp}@db:5432/${POSTGRES_DB:-eventsapp}
+      # Crear las tablas al arrancar (dev). En producción usar migraciones.
+      AUTO_CREATE_TABLES: "true"
+    ports:
+      - "${AUTH_SERVICE_PORT:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - eventsapp
+
+volumes:
+  pgdata:
+
+networks:
+  eventsapp:
+    driver: bridge

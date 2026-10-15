@@ -1,0 +1,21 @@
+C4Context
+    title Diagrama de Contexto (C4 - Nivel 1) - EventsApp
+
+    Person(organizer, "Usuario / Organizador", "Persona registrada que crea y gestiona eventos, registra novedades y consulta el dashboard.")
+    Person(assistant, "Asistente", "Invitado que escanea el código QR del evento para confirmar su asistencia y la de sus acompañantes.")
+    Person(staff, "Personal del evento", "Persona que valida la asistencia escaneando el código QR del asistente el día del evento.")
+
+    System(eventsapp, "EventsApp", "Aplicación para crear y gestionar eventos, confirmar y validar asistencia mediante códigos QR, registrar novedades y visualizar métricas en un dashboard.")
+
+    System_Ext(qrscanner, "Aplicación de escaneo de QR", "Aplicación externa de escaneo de códigos QR usada para redirigir a las páginas de confirmación y validación de asistencia.")
+
+    Rel(organizer, eventsapp, "Se registra, inicia sesión, crea eventos, registra novedades y consulta el dashboard", "HTTPS")
+    Rel(assistant, eventsapp, "Confirma asistencia y registra acompañantes", "HTTPS")
+    Rel(staff, eventsapp, "Valida la asistencia del asistente y sus acompañantes", "HTTPS")
+
+    Rel(assistant, qrscanner, "Escanea el código QR del evento")
+    Rel(staff, qrscanner, "Escanea el código QR de validación del asistente")
+    Rel(qrscanner, eventsapp, "Redirige a la página de confirmación / validación", "HTTPS")
+
+    UpdateRelStyle(organizer, eventsapp, $offsetY="-40")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")

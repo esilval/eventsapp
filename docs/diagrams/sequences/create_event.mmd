@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant U as Usuario
+    participant A as Aplicación
+    participant B as Base de datos
+
+    U->>A: Solicita crear un evento
+    A->>U: Muestra formulario de creación de evento
+    U->>A: Completa el formulario con detalles del evento
+    A->>B: Guarda el evento en la base de datos con estado "programado"
+    B-->>A: Confirma que el evento ha sido guardado
+    A->>U: Muestra confirmación de creación del evento

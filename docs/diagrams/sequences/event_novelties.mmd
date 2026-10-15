@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant U as Usuario
+    participant App as Aplicación
+    participant DB as Base de datos
+    U->>App: Ingresa información de la novedad del evento
+    App->>DB: Registra novedad del evento y actualiza estado del evento
+    DB-->>App: Confirma que la novedad ha sido registrada y el estado del evento ha sido actualizado
+    App->>U: Muestra mensaje de confirmación de registro de novedad del evento y cambio de estado del evento
+    

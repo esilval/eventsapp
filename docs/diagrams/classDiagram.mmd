@@ -1,0 +1,64 @@
+classDiagram
+    class User {
+        +string id
+        +string name
+        +string phone
+        +string email
+        +password password
+        +date created_at
+        +createEvent() Event
+    }
+
+    class Event {
+        +string id
+        +string title
+        +string description
+        +date start_date
+        +string start_hour
+        +date end_date
+        +string end_hour
+        +string location
+        +string status
+        +string user_id
+    }
+
+    class EventDetail {
+        +string id
+        +string event_id
+        +string detail
+    }
+
+    class EventNovelty {
+        +string id
+        +string event_id
+        +string novelty
+        +date created_at
+        +string initial_status
+        +string final_status
+    }
+
+    class Assistant {
+        +string id
+        +string event_id
+        +string name
+        +string email
+        +string phone
+        +string status
+        +date created_at
+    }
+
+    class Companion {
+        +string id
+        +string assistant_id
+        +string name
+        +string email
+        +string phone
+        +string status
+        +date created_at
+    }
+
+    User "1" --> "0..*" Event : creates
+    Event "1" --> "0..*" EventDetail : has
+    Event "1" --> "0..*" EventNovelty : has
+    Event "1" --> "0..*" Assistant : has
+    Assistant "1" --> "0..*" Companion : has

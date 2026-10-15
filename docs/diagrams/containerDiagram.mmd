@@ -1,0 +1,27 @@
+C4Container
+    title Diagrama de Contenedores (C4 - Nivel 2) - EventsApp
+
+    Person(organizer, "Usuario / Organizador", "Crea y gestiona eventos, registra novedades y consulta el dashboard.")
+    Person(assistant, "Asistente", "Confirma su asistencia y la de sus acompañantes.")
+    Person(staff, "Personal del evento", "Valida la asistencia el día del evento.")
+
+    System_Ext(qrscanner, "Aplicación de escaneo de QR", "Lector de códigos QR externo que redirige a las páginas de confirmación / validación.")
+
+    System_Boundary(eventsapp, "EventsApp") {
+        Container(spa, "Aplicación Web (SPA)", "Frontend web", "Interfaz de usuario: registro, login, gestión de eventos, dashboard, confirmación y validación de asistencia. Renderiza los códigos QR generados.")
+        Container(api, "API de Aplicación", "Backend / API REST", "Lógica de negocio: autenticación, gestión de eventos, asistentes, acompañantes, novedades y generación de códigos QR.")
+        ContainerDb(db, "Base de datos", "Base de datos relacional", "Almacena usuarios, eventos, detalles, novedades, asistentes y acompañantes.")
+    }
+
+    Rel(organizer, spa, "Usa", "HTTPS")
+    Rel(assistant, spa, "Confirma asistencia", "HTTPS")
+    Rel(staff, spa, "Valida asistencia", "HTTPS")
+
+    Rel(assistant, qrscanner, "Escanea el QR del evento")
+    Rel(staff, qrscanner, "Escanea el QR de validación")
+    Rel(qrscanner, spa, "Redirige a la página de confirmación / validación", "HTTPS")
+
+    Rel(spa, api, "Realiza llamadas a la API", "JSON/HTTPS")
+    Rel(api, db, "Lee y escribe", "SQL")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

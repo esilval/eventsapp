@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant A as Asistente
+    participant App as Aplicación
+    participant DB as Base de datos
+    A->>App: Escanea código QR del evento
+    App->>DB: Consulta información del evento
+    DB-->>App: Devuelve información del evento
+    App->>A: Muestra página de confirmación de asistencia
+    A->>App: Ingresa información de acompañantes (si aplica)
+    A->>App: Confirma asistencia y proporciona información adicional
+    App->>DB: Registra asistencia del asistente y sus acompañantes
+    DB-->>App: Confirma que la asistencia ha sido registrada
+    App-->>App: Genera código QR de validación de asistencia
+    App->>A: Muestra mensaje de confirmación de asistencia

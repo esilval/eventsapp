@@ -1,0 +1,61 @@
+erDiagram
+    USERS || --o{ EVENTS : creates
+    EVENTS || --o{ EVENT_DETAILS : has
+    EVENTS || --o{ EVENT_NOVELTIES : has
+    EVENTS || --o{ ASSISTANTS : has
+    ASSISTANTS || --o{ COMPANIONS : has
+    USERS {
+        string id
+        string name
+        string phone
+        string email
+        password password
+        string salt        
+        date created_at
+        date updated_at
+        date last_login
+    }
+    EVENTS {
+        string id
+        string title
+        string description
+        date start_date
+        string start_hour
+        date end_date
+        string end_hour
+        string location
+        string status
+        string user_id
+    }
+    EVENT_DETAILS {
+        string id
+        string event_id
+        string detail
+    }
+    EVENT_NOVELTIES {
+        string id
+        string event_id
+        string novelty
+        date created_at
+        string initial_status
+        string final_status
+    }
+    ASSISTANTS {
+        string id
+        string event_id
+        string name
+        string email
+        string phone
+        string status
+    }
+    COMPANIONS {
+        string id
+        string assistant_id
+        string name
+        string email
+        string phone
+        string status
+    }
+
+
+    

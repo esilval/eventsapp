@@ -1,0 +1,47 @@
+C4Component
+    title Diagrama de Componentes (C4 - Nivel 3) - API de Aplicación (EventsApp)
+
+    Container(spa, "Aplicación Web (SPA)", "Frontend web", "Interfaz de usuario que consume la API.")
+    ContainerDb(db, "Base de datos", "Base de datos relacional", "Usuarios, eventos, detalles, novedades, asistentes y acompañantes.")
+
+    Container_Boundary(api, "API de Aplicación") {
+        Component(authc, "Controlador de Autenticación", "Controlador REST", "Expone los endpoints de registro e inicio de sesión.")
+        Component(authsvc, "Servicio de Autenticación", "Lógica de negocio", "Valida credenciales, aplica reglas de contraseña, garantiza unicidad de email y gestiona la sesión.")
+
+        Component(eventc, "Controlador de Eventos", "Controlador REST", "Endpoints para crear, consultar y gestionar eventos y sus detalles.")
+        Component(eventsvc, "Servicio de Eventos", "Lógica de negocio", "Crea eventos con estado 'programado', gestiona detalles y el estado del evento.")
+
+        Component(attendc, "Controlador de Asistencia", "Controlador REST", "Endpoints de confirmación y validación de asistencia.")
+        Component(attendsvc, "Servicio de Asistencia", "Lógica de negocio", "Registra asistentes y acompañantes, confirma y valida la asistencia.")
+
+        Component(noveltysvc, "Servicio de Novedades", "Lógica de negocio", "Registra novedades y audita el cambio de estado del evento (inicial/final).")
+
+        Component(dashboardsvc, "Servicio de Dashboard", "Lógica de negocio", "Agrega eventos próximos, novedades recientes y métricas de asistencia.")
+
+        Component(qrgen, "Generador de Códigos QR", "Utilidad", "Genera el QR del evento y el QR de validación de asistencia.")
+
+        Component(repo, "Repositorios de Datos", "Acceso a datos", "Encapsula el acceso a la base de datos para todas las entidades.")
+    }
+
+    Rel(spa, authc, "Registro / login", "JSON/HTTPS")
+    Rel(spa, eventc, "Gestión de eventos", "JSON/HTTPS")
+    Rel(spa, attendc, "Confirmar / validar asistencia", "JSON/HTTPS")
+    Rel(spa, noveltysvc, "Registrar novedades", "JSON/HTTPS")
+    Rel(spa, dashboardsvc, "Consultar dashboard", "JSON/HTTPS")
+
+    Rel(authc, authsvc, "Usa")
+    Rel(eventc, eventsvc, "Usa")
+    Rel(attendc, attendsvc, "Usa")
+
+    Rel(eventsvc, qrgen, "Genera QR del evento")
+    Rel(attendsvc, qrgen, "Genera QR de validación")
+
+    Rel(authsvc, repo, "Lee / escribe usuarios")
+    Rel(eventsvc, repo, "Lee / escribe eventos y detalles")
+    Rel(attendsvc, repo, "Lee / escribe asistentes y acompañantes")
+    Rel(noveltysvc, repo, "Lee / escribe novedades y estado del evento")
+    Rel(dashboardsvc, repo, "Consulta agregados")
+
+    Rel(repo, db, "Lee y escribe", "SQL")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")

@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant U as Usuario
+    participant A as Aplicación
+    participant B as Base de datos
+    U->>A: Solicita iniciar sesión
+    A->>U: Muestra formulario de inicio de sesión
+    U->>A: Completa el formulario con correo electrónico y contraseña
+    A->>B: Valida las credenciales ingresadas
+    B-->>A: Confirma si las credenciales son correctas o incorrectas
+    A->>U: Muestra mensaje de error si las credenciales son incorrectas
+    A->>U: Permite el acceso a la cuenta si las credenciales son correctas
